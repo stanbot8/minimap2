@@ -1,91 +1,15 @@
-name: CI
-
+name: CI input verification
 on:
-  push:
-    branches:
-    - master
-  pull_request:
-
+  workflow_dispatch:
+    inputs:
+      probe:
+        type: string
+        required: true
 jobs:
-  build-linux-x8664:
-    name: Linux x86_64
+  check:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        compiler: [gcc, clang]
-
     steps:
-    - name: Checkout minimap2
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      run: |
-        make CC=${{ matrix.compiler }}
-        file minimap2 | grep x86-64
-
-    needs:
-    - alpha_bridge_inputs
-    if: ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' 
-      }}
-  build-linux-aarch64:
-    name: Linux aarch64
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        compiler: [gcc]
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      uses: uraimo/run-on-arch-action@v3
-      with:
-        arch: aarch64
-        distro: ubuntu22.04
-        githubToken: ${{ github.token }}
-        dockerRunArgs: |
-          --volume "${PWD}:/minimap2"
-        install: |
-          apt-get update -q -y
-          apt-get install -q -y make ${{ matrix.compiler }} zlib1g-dev file
-        run: |
-          cd /minimap2
-          make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
-          file minimap2 | grep aarch64
-
-    needs:
-    - alpha_bridge_inputs
-    if: ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' 
-      }}
-  build-mac-arm64:
-    name: Mac ARM64
-    runs-on: macos-14
-    strategy:
-      matrix:
-        compiler: [clang]
-
-    steps:
-    - name: Checkout minimap2
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      run: |
-        make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
-        file minimap2 | grep arm64
-
+    - run: echo 'Changed inputs reached the consumer'
     needs:
     - alpha_bridge_inputs
     if: ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' 
@@ -109,15 +33,12 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         AB_REPOSITORY: ${{ github.repository }}
         AB_RUN_ID: ${{ github.run_id }}
-        AB_HEAD_SHA: ${{ (github.event_name == 'schedule' || github.event_name 
-          == 'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-        AB_REF: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && 'refs/heads/master' || github.ref }}
+        AB_HEAD_SHA: ${{ github.sha }}
+        AB_REF: ${{ github.ref }}
         AB_WORKFLOW_DIGEST: 
-          544ae990e47315ef428210a8a9f266ae9a6342e1dee845aa6533aad15a38a455
-        AB_EVENT: ${{ github.event_name }}
-        AB_SCHEDULE: ${{ github.event.schedule || '' }}
+          538b9a5f4a645070b988c8cc2bc361fe5412e9e5bb5ea5f9f39b3e269164c9cb
+        AB_EVENT: schedule
+        AB_SCHEDULE: alpha-bridge verification
         AB_VARIABLES: ${{ toJSON(vars) }}
         AB_INPUTS: ${{ toJSON(inputs) }}
         AB_WORKFLOW_RUN: ${{ toJSON(github.event.workflow_run) }}
