@@ -1,91 +1,34 @@
-name: CI
-
+name: CI input probe
 on:
-  push:
-    branches:
-    - master
-  pull_request:
-
+  workflow_call:
+    inputs:
+      probe:
+        type: string
+        required: true
 jobs:
-  build-linux-x8664:
-    name: Linux x86_64
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        compiler: [gcc, clang]
-
-    steps:
-    - name: Checkout minimap2
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      run: |
-        make CC=${{ matrix.compiler }}
-        file minimap2 | grep x86-64
-
+  nested0:
+    uses: ./.github/workflows/alpha-bridge-ci-consumer.yml
+    with:
+      probe: ${{ inputs.probe }}
+      slot: '0'
     needs:
     - alpha_bridge_inputs
     if: |-
       ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' }}
-  build-linux-aarch64:
-    name: Linux aarch64
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        compiler: [gcc]
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      uses: uraimo/run-on-arch-action@v3
-      with:
-        arch: aarch64
-        distro: ubuntu22.04
-        githubToken: ${{ github.token }}
-        dockerRunArgs: |
-          --volume "${PWD}:/minimap2"
-        install: |
-          apt-get update -q -y
-          apt-get install -q -y make ${{ matrix.compiler }} zlib1g-dev file
-        run: |
-          cd /minimap2
-          make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
-          file minimap2 | grep aarch64
-
+  nested1:
+    uses: ./.github/workflows/alpha-bridge-ci-consumer.yml
+    with:
+      probe: ${{ inputs.probe }}
+      slot: '1'
     needs:
     - alpha_bridge_inputs
     if: |-
       ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' }}
-  build-mac-arm64:
-    name: Mac ARM64
-    runs-on: macos-14
-    strategy:
-      matrix:
-        compiler: [clang]
-
-    steps:
-    - name: Checkout minimap2
-      uses: actions/checkout@v4
-
-      with:
-        ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-    - name: Compile with ${{ matrix.compiler }}
-      run: |
-        make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
-        file minimap2 | grep arm64
-
+  nested2:
+    uses: ./.github/workflows/alpha-bridge-ci-consumer.yml
+    with:
+      probe: ${{ inputs.probe }}
+      slot: '2'
     needs:
     - alpha_bridge_inputs
     if: |-
@@ -97,7 +40,7 @@ jobs:
       actions: read
       contents: read
     concurrency:
-      group: alpha-bridge-inputs-01d33ce57ca441bf-${{ github.workflow }}-${{ 
+      group: alpha-bridge-inputs-79967559e6c019b6-${{ github.workflow }}-${{ 
         github.sha }}-${{ github.event.schedule || github.event_name }}
       cancel-in-progress: false
       queue: max
@@ -110,15 +53,12 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         AB_REPOSITORY: ${{ github.repository }}
         AB_RUN_ID: ${{ github.run_id }}
-        AB_HEAD_SHA: ${{ (github.event_name == 'schedule' || github.event_name 
-          == 'workflow_run') && '3c28777e7e2dcc90f825de1b9f17a89cca7d4452' || 
-          github.sha }}
-        AB_REF: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && 'refs/heads/master' || github.ref }}
+        AB_HEAD_SHA: ${{ github.sha }}
+        AB_REF: ${{ github.ref }}
         AB_WORKFLOW_DIGEST: 
-          818fbbb0d7a4206fab4ab95fe0e007b469b25bd8100c5a045b73c2345bec4921
-        AB_EVENT: ${{ github.event_name }}
-        AB_SCHEDULE: ${{ github.event.schedule || '' }}
+          bd367cba8e8810e351ab7c5db42453bb5c3cdfbec864efe5672bbab3a0053290
+        AB_EVENT: schedule
+        AB_SCHEDULE: alpha-bridge verification
         AB_VARIABLES: ${{ toJSON(vars) }}
         AB_INPUTS: ${{ toJSON(inputs) }}
         AB_DEFAULT_PERMISSIONS: read
